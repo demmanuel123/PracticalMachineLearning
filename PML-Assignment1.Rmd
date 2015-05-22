@@ -1,0 +1,102 @@
+---
+title: "Practical Machine Learning"
+author: "DainaE"
+date: "Thursday, May 21, 2015"
+output: html_document
+---
+
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. 
+
+Data Processing and Analysis
+
+The training and testing datasets used in the analysis may be found as follows:
+
+Training dataset:
+ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+Testing dataset:
+ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+We begin by loading the required libraries and reading in the training and testing datasets, assigning missing values to entries that are currently 'NA' or blank.
+
+```{r,cache=TRUE}
+library(corrplot)
+library(caret)
+
+setwd("C:/Personal/Coursera/Assignment/pml/PML-Assignment1")
+
+pml_train <- data.frame()
+pml_test  <- data.frame()
+pml_sub_train <- data.frame()
+pml_sub_test  <- data.frame()
+
+pml_train <- read.csv(file = "pml-training.csv",header = TRUE,,na.strings=c("NA", ""))
+pml_test <- read.csv(file = "pml-testing.csv",header = TRUE,na.strings = c("NA", ""))
+head(pml_train)
+
+## need to exclude 0 value columns and non measurement columns 
+
+#exclude 0 columns
+csums <- colSums(is.na(pml_train))
+csums_log <- (csums == 0)
+pml_sub_train <- pml_train[, (colSums(is.na(pml_train)) == 0)]
+pml_test <- pml_test[, (colSums(is.na(pml_train)) == 0)]
+
+#include only measurement columns
+del_cols <- grepl("X|user_name|timestamp|new_window", colnames(pml_sub_train))
+pml_sub_train <- pml_sub_train[, !del_cols]
+pml_sub_test <- pml_test[, !del_cols]
+
+dim(pml_sub_train)
+
+dim(pml_sub_test)
+
+inTrain = createDataPartition(y = pml_train$classe, p = 0.7, list = FALSE)
+pml_train_subset = pml_sub_train[inTrain, ]
+pml_train_t = pml_sub_train[-inTrain, ]
+
+
+```
+
+
+```{r,cache=TRUE}
+
+#Principal COmponent Analysis fitting
+preProc <- preProcess(pml_train_subset[, -54], method = "pca", thresh = 0.99)
+trainPC <- predict(preProc, pml_train_subset[, -54])
+valid_testPC <- predict(preProc,pml_train_t[, -54])
+#RandomForest fitting
+modelFit <- train(pml_train_subset$classe ~ ., method = "rf", data = trainPC, trControl = trainControl(method = "cv", number = 4), importance = TRUE)
+
+#Depicting importance of the resulting principal components of the trained model
+
+varImpPlot(modelFit$finalModel, sort = TRUE, type = 1, pch = 19, col = 1, cex = 1, 
+    main = "Importance of the Individual Principal Components")
+
+
+```
+
+
+```{r,cache=TRUE}
+
+#You should create a report describing how you built your model, how you used cross #validation, what you think the expected out of sample error is, and why you made the #choices you did. You will also use your prediction model to predict 20 different test #cases. 
+
+pred_valid_rf <- predict(modelFit, valid_testPC)
+confus <- confusionMatrix(pml_train_t$classe, pred_valid_rf)
+confus$table
+accur <- postResample(pml_train_t$classe, pred_valid_rf)
+model_accuracy <- accur[[1]]
+model_accuracy
+
+out_of_sample_error <- 1 - model_accuracy
+out_of_sample_error
+
+```
+
+```{r}
+testPC <- predict(preProc, pml_sub_test[, -54])
+pred_final <- predict(modelFit, testPC)
+pred_final
+
+```
