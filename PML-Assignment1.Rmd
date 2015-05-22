@@ -2,7 +2,7 @@
 title: "Practical Machine Learning"
 author: "DainaE"
 date: "Thursday, May 21, 2015"
-output: html_document
+output: word_document
 ---
 
 
